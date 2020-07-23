@@ -9,20 +9,21 @@ import org.springframework.security.oauth2.config.annotation.web.configuration.E
 import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
 
 @Configuration
-@EnableResourceServer
 public class SpotifyConfig extends ResourceServerConfigurerAdapter {
 
     @Override
     public void configure(HttpSecurity http) throws Exception{
         http.authorizeRequests()
-                .antMatchers("/**").permitAll();
+                .antMatchers("/**")
+                .authenticated();
     }
-
-    @Primary
-    @Bean
-    public UserInfoTokenServices tokenService() {
-        final UserInfoTokenServices tokenService = new UserInfoTokenServices("/user", "");
-        return tokenService;
-    }
+// todo: remove it if not necessary
+//
+//    @Primary
+//    @Bean
+//    public UserInfoTokenServices tokenService() {
+//        final UserInfoTokenServices tokenService = new UserInfoTokenServices("/user", "");
+//        return tokenService;
+//    }
 
 }
