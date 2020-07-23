@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.stereotype.Service;
+import pl.wikkam.spotifychart.model.Album;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -21,6 +22,10 @@ public class ImageService {
     private int sideSize = 0; // 2, 3, 4 ,5
     private int nodeSize = 0; // 64, 300, 640
 
+    public int adjustSize(int size){
+        if (size < 4) return 300;
+        return 64;
+    }
     private BufferedImage resize(BufferedImage inputImage, int scaledWidth, int scaledHeight)
             throws IOException {
         BufferedImage outputImage = new BufferedImage(scaledWidth,
@@ -58,8 +63,16 @@ public class ImageService {
     public List parseArtistData(JsonNode data){
         List artistsList = new ObjectMapper().convertValue(data, ArrayList.class);
         return (List) artistsList.stream().map(obj -> {
+            JsonNode artist = new ObjectMapper().valueToTree(obj);
+            return this.getImagesFromArtist(artist);
+        }).collect(Collectors.toList());
+    }
+
+    public List parseTrackData(JsonNode data){
+        List tracksList = new ObjectMapper().convertValue(data, ArrayList.class);
+        return (List) tracksList.stream().map(obj -> {
             JsonNode track = new ObjectMapper().valueToTree(obj);
-            return this.getImagesFromArtist(track);
+            return this.getImagesFromTrack(track);
         }).collect(Collectors.toList());
     }
 
@@ -73,7 +86,7 @@ public class ImageService {
     }
 
     private BufferedImage drawAll(Graphics2D g2, List list) throws IOException {
-        for(int i = 0; i < sideSize * sideSize; i++) {
+        for(int i = 0; i < Math.min(sideSize * sideSize, list.size()); i++) {
             ArrayNode trackImages = new ObjectMapper().valueToTree(list.get(i));
             String url = trackImages.get(mapNodeSizeToIndex()).get("url").textValue();
             BufferedImage img1 = this.readImage(url);
@@ -95,9 +108,15 @@ public class ImageService {
         return this.drawAll(g2, artistsList);
     }
 
+    public BufferedImage buildAlbumsChart(List<Album> albums) throws IOException {
+        List imagesList = albums.stream().map(Album::getImages).collect(Collectors.toList());
+        Graphics2D g2 = this.initDrawing();
+        return this.drawAll(g2, imagesList);
+    }
+
 
     public JsonNode getImagesFromTrack(JsonNode track){
-        return track.get("track").get("album").get("images");
+        return (track.get("track") != null) ? track.get("track").get("album").get("images") : track.get("album").get("images");
     }
 
     public JsonNode getImagesFromArtist(JsonNode artist){

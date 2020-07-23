@@ -2,6 +2,8 @@ package pl.wikkam.spotifychart.services;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -11,11 +13,14 @@ import org.springframework.security.oauth2.provider.authentication.OAuth2Authent
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import javax.naming.AuthenticationException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
 @Service
 public class SpotifyService {
+
+    private ObjectMapper mapper = new ObjectMapper();
 
     private HttpEntity createHeaders(String token){
         HttpHeaders headers = new HttpHeaders();
@@ -23,7 +28,13 @@ public class SpotifyService {
         return new HttpEntity(headers);
     }
 
-    public JsonNode getAlbumsByAuthor(OAuth2Authentication details, String name){
+    public void checkIfAuthenticated(OAuth2Authentication details) throws AuthenticationException {
+        if(details==null)
+            throw new AuthenticationException("No auth token provided! go to /login first");
+    }
+
+    public JsonNode getAlbumsByAuthor(OAuth2Authentication details, String name) throws AuthenticationException {
+        checkIfAuthenticated(details);
 
         final String template = "https://api.spotify.com/v1/search?q=%s&type=%s";
 
@@ -32,7 +43,8 @@ public class SpotifyService {
         return getResponse(details, url);
     }
 
-    public JsonNode getUserPlaylists(OAuth2Authentication details){
+    public JsonNode getUserPlaylists(OAuth2Authentication details) throws AuthenticationException {
+        checkIfAuthenticated(details);
         final String url = "https://api.spotify.com/v1/me/playlists";
         return getResponse(details, url).get("items");
     }
@@ -44,10 +56,11 @@ public class SpotifyService {
         return response.getBody();
     }
 
-    public JsonNode getUserPlaylist(OAuth2Authentication details, String name){
-        return new ObjectMapper()
+    public JsonNode getUserPlaylist(OAuth2Authentication details, String name) throws AuthenticationException {
+        checkIfAuthenticated(details);
+        return mapper
                 .valueToTree(
-                       new ObjectMapper()
+                       mapper
                                .convertValue(getUserPlaylists(details), ArrayList.class)
                                .stream()
                 .filter(playlist -> {
@@ -56,21 +69,39 @@ public class SpotifyService {
         }).findAny().orElse(null));
     }
 
-    public JsonNode getTracksFromPlaylist(OAuth2Authentication details, String name){
+    public JsonNode getTracksFromPlaylist(OAuth2Authentication details, String name) throws AuthenticationException {
+        checkIfAuthenticated(details);
         JsonNode playlist = getUserPlaylist(details, name);
         if(playlist != null){
             String url = playlist.get("tracks").get("href").textValue();
-            return getResponse(details,url);
+            JsonNode result =  getResponse(details,url);
+            while(result.get("next").textValue() != null){
+                String nextUrl = result.get("next").textValue();
+                System.out.println(nextUrl);
+                JsonNode nextResult = getResponse(details, nextUrl);
+                ArrayNode items = (ArrayNode) nextResult.get("items");
+                ((ArrayNode)result.get("items")).addAll(items);
+                ((ObjectNode) result).set("next", nextResult.get("next"));
+            }
+            return result;
         }
         return null;
     }
 
-    public JsonNode getRecentlyPlayedTracks(OAuth2Authentication details){
-        final String url = "https://api.spotify.com/v1/me/player/recently-played";
+    public JsonNode getRecentlyPlayedTracks(OAuth2Authentication details) throws AuthenticationException {
+        checkIfAuthenticated(details);
+        final String url = "https://api.spotify.com/v1/me/player/recently-played?limit=50";
         return getResponse(details, url);
     }
-    public  JsonNode getUsersTopArtists(OAuth2Authentication details){
-        final String url = "https://api.spotify.com/v1/me/top/artists?time_range=long_term&limit=9";
+    public  JsonNode getUsersTopArtists(OAuth2Authentication details, String timeRange) throws AuthenticationException {
+        checkIfAuthenticated(details);
+        final String url = "https://api.spotify.com/v1/me/top/artists?time_range=" + timeRange +"&limit=50";
         return getResponse(details,url);
+    }
+
+    public JsonNode getUsersTopTracks(OAuth2Authentication details, String timeRange) throws AuthenticationException {
+        checkIfAuthenticated(details);
+        final String url = "https://api.spotify.com/v1/me/top/tracks?time_range=" + timeRange +"&limit=50";
+        return getResponse(details, url);
     }
 }
