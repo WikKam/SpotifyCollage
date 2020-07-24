@@ -44,6 +44,7 @@ public class ImagesController {
         return ret;
     }
 
+    @CrossOrigin
     @RequestMapping(value = "/user/playlists/{name}/images", method = RequestMethod.GET, produces = "image/jpg")
     public ResponseEntity<byte[]> getPlaylistImages(OAuth2Authentication details,
                                                     @PathVariable String name,
@@ -55,6 +56,7 @@ public class ImagesController {
         return sendImage(this.imageService.buildAlbumsChart(albums));
     }
 
+    @CrossOrigin
     @RequestMapping(value = "/user/recently-played/images", method = RequestMethod.GET, produces = "image/jpg")
     public ResponseEntity<byte[]> getRecentlyPlayedTracksImages(OAuth2Authentication details,
                                                                 @RequestParam(name="size") String size) throws IOException, AuthenticationException {
@@ -66,6 +68,7 @@ public class ImagesController {
         return sendImage(this.imageService.buildAlbumsChart(albums));
     }
 
+    @CrossOrigin
     @RequestMapping(value = "/user/top-artists/images", method = RequestMethod.GET, produces = "image/jpg")
     public ResponseEntity<byte[]> getTopArtistsImages(OAuth2Authentication details,
                                                       @RequestParam(name = "time_range") String timeRange,
@@ -75,6 +78,7 @@ public class ImagesController {
         return sendImage(this.imageService.buildArtistsChart(artists));
     }
 
+    @CrossOrigin
     @RequestMapping(value = "/user/top-tracks/images", method = RequestMethod.GET, produces = "image/jpg")
     public ResponseEntity<byte[]> getTopTracksImages(OAuth2Authentication details,
                                                      @RequestParam(name = "time_range") String timeRange,
