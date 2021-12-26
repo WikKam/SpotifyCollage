@@ -22,14 +22,23 @@ import java.util.List;
 
 @RestController
 public class ImagesController {
-    @Autowired
-    private SpotifyService spotifyService;
+
+    private final SpotifyService spotifyService;
+
+    private final ImageService imageService;
+
+    private final PlaylistService playlistService;
 
     @Autowired
-    private ImageService imageService;
-
-    @Autowired
-    private PlaylistService playlistService;
+    public ImagesController(
+            SpotifyService spotifyService,
+            ImageService imageService,
+            PlaylistService playlistService
+    ){
+        this.spotifyService = spotifyService;
+        this.imageService = imageService;
+        this.playlistService = playlistService;
+    }
 
     private ResponseEntity<byte[]> sendImage(BufferedImage bufferedImage) throws IOException {
         HttpHeaders headers = new HttpHeaders();
@@ -37,11 +46,9 @@ public class ImagesController {
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
 
         this.imageService.initBuilding(3,300);
-        System.out.println(bufferedImage);
         ImageIO.write(bufferedImage, "png", bao);
         byte[] media = bao.toByteArray();
-        ResponseEntity<byte[]> ret = new ResponseEntity<>(media,headers, HttpStatus.OK);
-        return ret;
+        return new ResponseEntity<>(media,headers, HttpStatus.OK);
     }
 
     @CrossOrigin
@@ -50,8 +57,8 @@ public class ImagesController {
                                                     @PathVariable String name,
                                                     @RequestParam(name = "size") String size) throws IOException, AuthenticationException {
 
-        JsonNode trackData = this.spotifyService.getTracksFromPlaylist(details, name).get("items");
-        List<Album> albums = this.playlistService.parseTracksToAlbumList(trackData);
+        JsonNode trackData = this.spotifyService.getRawTracksFromPlaylist(details, name).get("items");
+        List<Album> albums = this.playlistService.parseRawTracksToAlbumList(trackData);
         this.imageService.initBuilding(Integer.parseInt(size), 300);
         return sendImage(this.imageService.buildAlbumsChart(albums));
     }
@@ -60,8 +67,8 @@ public class ImagesController {
     @RequestMapping(value = "/user/recently-played/images", method = RequestMethod.GET, produces = "image/jpg")
     public ResponseEntity<byte[]> getRecentlyPlayedTracksImages(OAuth2Authentication details,
                                                                 @RequestParam(name="size") String size) throws IOException, AuthenticationException {
-        JsonNode trackData = this.spotifyService.getRecentlyPlayedTracks(details).get("items");
-        List<Album> albums = this.playlistService.parseTracksToAlbumList(trackData);
+        JsonNode rawTracksData = this.spotifyService.getRecentlyPlayedRawTracks(details).get("items");
+        List<Album> albums = this.playlistService.parseRawTracksToAlbumList(rawTracksData);
         int sum = albums.stream().map(album -> album.getTracksList().size()).reduce(0, Integer::sum);
         System.out.println(sum);
         this.imageService.initBuilding(Integer.parseInt(size), 300);
@@ -73,7 +80,7 @@ public class ImagesController {
     public ResponseEntity<byte[]> getTopArtistsImages(OAuth2Authentication details,
                                                       @RequestParam(name = "time_range") String timeRange,
                                                       @RequestParam(name="size") String size) throws IOException, AuthenticationException {
-        JsonNode artists = this.spotifyService.getUsersTopArtists(details, timeRange).get("items");
+        JsonNode artists = this.spotifyService.getUsersRawTopArtists(details, timeRange).get("items");
         this.imageService.initBuilding(Integer.parseInt(size),300);
         return sendImage(this.imageService.buildArtistsChart(artists));
     }
@@ -83,8 +90,8 @@ public class ImagesController {
     public ResponseEntity<byte[]> getTopTracksImages(OAuth2Authentication details,
                                                      @RequestParam(name = "time_range") String timeRange,
                                                      @RequestParam(name = "size") String size) throws IOException, AuthenticationException {
-        JsonNode trackData = this.spotifyService.getUsersTopTracks(details, timeRange).get("items");
-        List<Album> albums = this.playlistService.parseTracksToAlbumList(trackData);
+        JsonNode trackData = this.spotifyService.getUsersRawTopTracks(details, timeRange).get("items");
+        List<Album> albums = this.playlistService.parseRawTracksToAlbumList(trackData);
         albums.forEach(album -> {
             System.out.println(album.getAlbumName());
             System.out.println(album.getAlbumLength());
