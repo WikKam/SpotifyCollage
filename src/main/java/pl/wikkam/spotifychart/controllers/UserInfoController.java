@@ -9,8 +9,12 @@ import java.security.Principal;
 
 @RestController
 public class UserInfoController {
+    private final SpotifyService spotifyService;
+
     @Autowired
-    private SpotifyService spotifyService;
+    public UserInfoController(SpotifyService spotifyService){
+        this.spotifyService = spotifyService;
+    }
 
     @CrossOrigin
     @GetMapping("/user")
@@ -45,24 +49,24 @@ public class UserInfoController {
     @CrossOrigin
     @GetMapping("/user/playlists/{name}/tracks")
     public JsonNode getTracksFromPlaylist(OAuth2Authentication details, @PathVariable String name) throws AuthenticationException {
-        return this.spotifyService.getTracksFromPlaylist(details, name).get("items");
+        return this.spotifyService.getRawTracksFromPlaylist(details, name).get("items");
     }
 
     @CrossOrigin
     @GetMapping("/user/recently-played")
     public JsonNode getRecentlyPlayedTracks(OAuth2Authentication details) throws AuthenticationException {
-        return this.spotifyService.getRecentlyPlayedTracks(details);
+        return this.spotifyService.getRecentlyPlayedRawTracks(details);
     }
 
     @CrossOrigin
     @GetMapping("/user/top-artists")
     public JsonNode getTopArtists(OAuth2Authentication details, @RequestParam(name = "time_range") String timeRange) throws AuthenticationException {
-        return this.spotifyService.getUsersTopArtists(details, timeRange);
+        return this.spotifyService.getUsersRawTopArtists(details, timeRange);
     }
 
     @CrossOrigin
     @GetMapping("/user/top-tracks")
     public JsonNode getTopTracks(OAuth2Authentication details, @RequestParam(name = "time_range") String timeRange) throws AuthenticationException {
-        return this.spotifyService.getUsersTopTracks(details, timeRange);
+        return this.spotifyService.getUsersRawTopTracks(details, timeRange);
     }
 }

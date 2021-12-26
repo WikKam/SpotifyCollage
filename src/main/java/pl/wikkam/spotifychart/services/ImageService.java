@@ -2,16 +2,16 @@ package pl.wikkam.spotifychart.services;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.stereotype.Service;
 import pl.wikkam.spotifychart.model.Album;
+import pl.wikkam.spotifychart.model.Artist;
+import pl.wikkam.spotifychart.model.Image;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,13 +21,9 @@ public class ImageService {
     private BufferedImage image = null;
     private int sideSize = 0; // 2, 3, 4 ,5
     private int nodeSize = 0; // 64, 300, 640
+    private final ObjectMapper mapper = new ObjectMapper();
 
-    public int adjustSize(int size){
-        if (size < 4) return 300;
-        return 64;
-    }
-    private BufferedImage resize(BufferedImage inputImage, int scaledWidth, int scaledHeight)
-            throws IOException {
+    private BufferedImage resize(BufferedImage inputImage, int scaledWidth, int scaledHeight) {
         BufferedImage outputImage = new BufferedImage(scaledWidth,
                 scaledHeight, inputImage.getType());
 
@@ -60,20 +56,11 @@ public class ImageService {
                         (sideSize * nodeSize, sideSize * nodeSize, BufferedImage.TYPE_INT_ARGB);
     }
 
-    public List parseArtistData(JsonNode data){
-        List artistsList = new ObjectMapper().convertValue(data, ArrayList.class);
-        return (List) artistsList.stream().map(obj -> {
-            JsonNode artist = new ObjectMapper().valueToTree(obj);
-            return this.getImagesFromArtist(artist);
-        }).collect(Collectors.toList());
-    }
-
-    public List parseTrackData(JsonNode data){
-        List tracksList = new ObjectMapper().convertValue(data, ArrayList.class);
-        return (List) tracksList.stream().map(obj -> {
-            JsonNode track = new ObjectMapper().valueToTree(obj);
-            return this.getImagesFromTrack(track);
-        }).collect(Collectors.toList());
+    public List<Artist> parseArtistData(JsonNode data){
+        return mapper.convertValue(
+                data,
+                mapper.getTypeFactory().constructCollectionType(List.class, Artist.class)
+        );
     }
 
     private Graphics2D initDrawing(){
@@ -85,69 +72,46 @@ public class ImageService {
         return g2;
     }
 
-    private BufferedImage drawAll(Graphics2D g2, List list) throws IOException {
+    private BufferedImage drawAll(Graphics2D g2, List<List<Image>> list) {
         for(int i = 0; i < Math.min(sideSize * sideSize, list.size()); i++) {
-            ArrayNode trackImages = new ObjectMapper().valueToTree(list.get(i));
-            String url = trackImages.get(mapNodeSizeToIndex()).get("url").textValue();
-            BufferedImage img1 = this.readImage(url);
-            if(img1.getWidth() != this.nodeSize){
-                img1 = this.resize(img1, this.nodeSize, this.nodeSize);
+            String url = list.get(i).get(mapNodeSizeToIndex()).getUrl();
+            try {
+                BufferedImage img1 = this.readImage(url);
+                if(img1.getWidth() != this.nodeSize){
+                    img1 = this.resize(img1, this.nodeSize, this.nodeSize);
+                }
+                g2.drawImage(img1, null, ((i % sideSize) * nodeSize),(i / sideSize) * nodeSize);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            g2.drawImage(img1, null, ((i%sideSize)*nodeSize),(i/sideSize)*nodeSize);
-
         }
         g2.dispose();
         return this.image;
     }
 
-    public BufferedImage buildArtistsChart(JsonNode data) throws IOException {
-        List artistsList = this.parseArtistData(data);
+    public BufferedImage buildArtistsChart(JsonNode data) {
+        List<Artist> artistsList = this.parseArtistData(data);
 
         Graphics2D g2 = this.initDrawing();
 
-        return this.drawAll(g2, artistsList);
+        return this.drawAll(g2, artistsList
+                .stream()
+                .map(Artist::getImages)
+                .collect(Collectors.toList()));
     }
 
-    public BufferedImage buildAlbumsChart(List<Album> albums) throws IOException {
-        List imagesList = albums.stream().map(Album::getImages).collect(Collectors.toList());
+    public BufferedImage buildAlbumsChart(List<Album> albums) {
+        List<List<Image>> imagesList = albums
+                .stream()
+                .map(Album::getImages)
+                .collect(Collectors.toList());
+
         Graphics2D g2 = this.initDrawing();
         return this.drawAll(g2, imagesList);
-    }
-
-
-    public JsonNode getImagesFromTrack(JsonNode track){
-        return (track.get("track") != null) ? track.get("track").get("album").get("images") : track.get("album").get("images");
-    }
-
-    public JsonNode getImagesFromArtist(JsonNode artist){
-        return artist.get("images");
     }
 
     public BufferedImage readImage(String url) throws IOException {
         URL imageUrl = new URL(url);
         return ImageIO.read(imageUrl);
-    }
-
-    public BufferedImage joinTwo(String url1, String url2) throws IOException {
-        BufferedImage img1 = readImage(url1);
-        BufferedImage img2 = readImage(url2);
-        return joinTwo(img1,img2);
-    }
-
-    public BufferedImage joinTwo(BufferedImage img1, BufferedImage img2){
-        int offset  = 0;
-        int wid = img1.getWidth()+img2.getWidth()+offset;
-        int height = Math.max(img1.getHeight(),img2.getHeight())+offset;
-        BufferedImage newImage = new BufferedImage(wid,height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2 = newImage.createGraphics();
-        Color oldColor = g2.getColor();
-        g2.setPaint(Color.WHITE);
-        g2.fillRect(0, 0, wid, height);
-        //draw image
-        g2.setColor(oldColor);
-        g2.drawImage(img1, null, 0, 0);
-        g2.drawImage(img2, null, img1.getWidth()+offset, 0);
-        g2.dispose();
-        return newImage;
     }
 }

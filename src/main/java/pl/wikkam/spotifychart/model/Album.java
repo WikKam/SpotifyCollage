@@ -1,6 +1,6 @@
 package pl.wikkam.spotifychart.model;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,7 +12,8 @@ import java.util.List;
 
 @AllArgsConstructor
 @NoArgsConstructor
-public class Album implements Comparable {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class Album implements Comparable<Album> {
     @Getter
     @Setter
     private String albumName;
@@ -21,7 +22,7 @@ public class Album implements Comparable {
     private String artistName;
     @Getter
     @Setter
-    private JsonNode images;
+    private List<Image> images;
 
     @Getter
     private List<Track> tracksList = new ArrayList<>();
@@ -36,10 +37,9 @@ public class Album implements Comparable {
 
 
     @Override
-    public int compareTo(Object o) {
-        if(o instanceof Album){
-            Album album = (Album) o;
-            return this.getAlbumLength().subtract(album.getAlbumLength()).intValue();
+    public int compareTo(Album o) {
+        if(o != null){
+            return this.getAlbumLength().subtract(o.getAlbumLength()).intValue();
         }
         return 0;
     }
